@@ -1,4 +1,4 @@
-
+-- VERSION: 0.0.1
 function llog(message)
 	minetest.log(message)
 	minetest.chat_send_all(message)
