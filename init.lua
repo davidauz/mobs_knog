@@ -59,6 +59,7 @@ minetest.register_chatcommand("kn_t", {
 			llog("MARK_WATER = 4")
 			llog("MARK_RAYCAST_BUILDING=5")
 			llog("MARK_HIGHLIGHT_BUILDING=6")
+			llog("ATTACK_BUILDING=7")
 			return
 		end
 		for index,an_entity in pairs(minetest.luaentities) do
@@ -67,6 +68,14 @@ minetest.register_chatcommand("kn_t", {
 			end
 		end
 		if nil ==KNOG_instance then return end
+		if "7"==param then
+			KNOG_instance.target_type= "building"
+			KNOG_instance.target_position = minetest.get_player_by_name('papa'):get_pos()
+			KNOG_instance.status="status_targeted"
+			KNOG_instance.timer=25
+			KNOG_instance.timer_down=true
+			return
+		end
 
 		local what_to_log, how_many_markers = param:match("(.+)%s+(.+)")
 		KNOG_instance.MARKING_WHAT = 0+what_to_log
@@ -272,7 +281,7 @@ local get_distance = function(a, b)
 end
 
 
-mobs:register_egg("mobs_knog:knog", "Knog", "default_dirt.png", 1)
+mobs:register_egg("mobs_knog:knog", "Knog", "knog_egg.png", 1)
 
 minetest.register_entity("mobs_knog:knog", 
 	{	name="Knog"
