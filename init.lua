@@ -68,14 +68,14 @@ minetest.register_chatcommand("kn_t", {
 			end
 		end
 		if nil ==KNOG_instance then return end
-		if "7"==param then
-			KNOG_instance.target_type= "building"
-			KNOG_instance.target_position = minetest.get_player_by_name('papa'):get_pos()
-			KNOG_instance.status="status_targeted"
-			KNOG_instance.timer=25
-			KNOG_instance.timer_down=true
-			return
-		end
+--		if "7"==param then
+--			KNOG_instance.target_type= "building"
+--			KNOG_instance.target_position = minetest.get_player_by_name('xxxx'):get_pos()
+--			KNOG_instance.status="status_targeted"
+--			KNOG_instance.timer=25
+--			KNOG_instance.timer_down=true
+--			return
+--		end
 
 		local what_to_log, how_many_markers = param:match("(.+)%s+(.+)")
 		KNOG_instance.MARKING_WHAT = 0+what_to_log
@@ -125,9 +125,10 @@ local check_env_damage = function (self)
 		self.object:set_hp( self.object:get_hp() - self.BASE_ENV_DAMAGE )
 		return
 	end
-	if nodef.groups.lava
-	or standing_in == node_fire
-	or standing_in == node_permanent_flame then
+	if	nodef.groups.lava
+	or	string.find(nodef.name, "fire") 
+	or	string.find(nodef.name, "lava") 
+	then
 		self.object:set_hp( self.object:get_hp() - 3*self.BASE_ENV_DAMAGE )
 		return
 	end
@@ -236,7 +237,7 @@ local do_advance = function(self) -- [
 		end
 	end
 -- now look for water  (gorillas hate water) and fire (they hate fire even more than water)
-	vsr=self.collisionbox[2]-0.5
+	local vsr=self.collisionbox[2]-0.5
 	for hsr=self.collisionbox[1], self.collisionbox[4] do -- horizontal scan range
 		for depth=1,2,0.5 do
 			sample_pos={
@@ -339,7 +340,7 @@ minetest.register_entity("mobs_knog:knog",
 	,		current=""
 	}
 	,	on_activate = function(self, staticdata)
-			self.object:setacceleration({x=0, y=-10, z=0})
+			self.object:set_acceleration({x=0, y=-10, z=0})
 			self.object:set_hp(self.MAX_HEALTH)
 			for i=1, self.TOTAL_MARKERS do
 				self.markers_positions[i] = nil
@@ -412,18 +413,18 @@ minetest.register_entity("mobs_knog:knog",
 			end
 		end
 	end
-	,	on_rightclick = function (self, clicker)
--- rotate
-			local yaw= self.object:get_yaw();
-			yaw=yaw + 0.3;
-			yaw=math.fmod(yaw, 2*math.pi)
-			self.object:set_yaw( yaw )
-			self.object:set_velocity({
-				x = 0,
-				y = 0,
-				z = 0
-			})
-	end
+--	,	on_rightclick = function (self, clicker)
+---- rotate (debug)
+--			local yaw= self.object:get_yaw();
+--			yaw=yaw + 0.3;
+--			yaw=math.fmod(yaw, 2*math.pi)
+--			self.object:set_yaw( yaw )
+--			self.object:set_velocity({
+--				x = 0,
+--				y = 0,
+--				z = 0
+--			})
+--	end
 	,	set_velocity_to_yaw = function(self)
 			local yaw = self.object:get_yaw()
 			local x = math.sin(yaw) * -1
@@ -450,7 +451,6 @@ minetest.register_entity("mobs_knog:knog",
 			if p.x > s.x then yaw = yaw + math.pi end
 			self.object:set_yaw( yaw )
 	end
-
 	,	do_building_down = function(self)
 			local radius = 3
 			local knog_pos = self.object:get_pos()
