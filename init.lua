@@ -59,7 +59,7 @@ minetest.register_chatcommand("kn_t", {
 			llog("MARK_WATER = 4")
 			llog("MARK_RAYCAST_BUILDING=5")
 			llog("MARK_HIGHLIGHT_BUILDING=6")
-			llog("ATTACK_BUILDING=7")
+--			llog("ATTACK_BUILDING=7")
 			return
 		end
 		for index,an_entity in pairs(minetest.luaentities) do
