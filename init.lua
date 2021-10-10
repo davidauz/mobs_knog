@@ -11,6 +11,22 @@ local MARK_TARGET_ENTITY = 3
 local MARK_WATER = 4
 local MARK_RAYCAST_BUILDING=5
 local MARK_HIGHLIGHT_BUILDING=6
+local MARK_BOULDER=7
+
+minetest.register_entity(":knog:boulder", {
+	initial_properties = {
+		visual = "cube",
+		visual_size = {x=1.5, y=1.5, z=1.5},
+		textures = {"knog_boulder.png", "knog_boulder.png",
+			"knog_boulder.png", "knog_boulder.png",
+			"knog_boulder.png", "knog_boulder.png"},
+		collisionbox = {-0.75, -0.75, -0.75, 0.75, 0.75, 0.75},
+		physical = true,
+		static_save = false,
+	},
+})
+
+
 
 -- used for debug
 minetest.register_entity(":knog:marker", {
@@ -59,7 +75,7 @@ minetest.register_chatcommand("kn_t", {
 			llog("MARK_WATER = 4")
 			llog("MARK_RAYCAST_BUILDING=5")
 			llog("MARK_HIGHLIGHT_BUILDING=6")
-			llog("THROWING=7")
+			llog("MARK boulder=7")
 			llog("TERMINATE=8")
 			return
 		end
@@ -69,11 +85,6 @@ minetest.register_chatcommand("kn_t", {
 			end
 		end
 		if nil ==KNOG_instance then return end
-		if "7"==param then
-			llog('Throwing')
-			KNOG_instance.throw_boulder_at_target(KNOG_instance)
-			return
-		end
 		if "8"==param then
 			llog('Terminate')
 			KNOG_instance.object:remove()
@@ -81,6 +92,7 @@ minetest.register_chatcommand("kn_t", {
 		end
 
 		local what_to_log, how_many_markers = param:match("(.+)%s+(.+)")
+		if nil == how_many_markers then how_many_markers=10 end
 		KNOG_instance.MARKING_WHAT = 0+what_to_log
 		KNOG_instance.CURRENT_MARKERS = 0+how_many_markers
 		if KNOG_instance.CURRENT_MARKERS > KNOG_instance.TOTAL_MARKERS then 
@@ -117,6 +129,9 @@ end
 local check_flying_boulders = function(kn_inst)
 	if nil == kn_inst.flying_boulder then return end
 	local b_pos = kn_inst.flying_boulder:get_pos()
+	if nil == b_pos then return end
+	b_pos.y = b_pos.y-1
+	if MARK_BOULDER==kn_inst.MARKING_WHAT then add_marker(kn_inst, b_pos) end					
 	local b_node=minetest.get_node(b_pos)
 	if "air" ~= b_node.name then 
 		kn_inst.flying_boulder:remove()
@@ -170,7 +185,7 @@ local stand_and_do_nothing = function(self)
 	self.timer_down=true
 end
 
-local add_marker = function (self, pos)
+function add_marker(self, pos)
 	local curr_marker_struct = self.markers_positions[ self.markers_index ]
 	if nil ~= curr_marker_struct then
 		curr_marker_struct:remove()
@@ -727,7 +742,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				}
 				minetest.remove_node(kn_pos)
 				kn_pos.y = kn_pos.y + 4 -- TODO: see bounding box value
-				self.flying_boulder = minetest.add_entity(kn_pos, "knog:marker")
+				self.flying_boulder = minetest.add_entity(kn_pos, "knog:boulder")
 				self.flying_boulder:set_velocity( self.flying_boulder_velocity )
 				self.change_direction_and_walk(self)
 			end
