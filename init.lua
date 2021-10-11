@@ -23,6 +23,14 @@ minetest.register_entity(":knog:boulder", {
 		collisionbox = {-0.75, -0.75, -0.75, 0.75, 0.75, 0.75},
 		physical = true,
 		static_save = false,
+		b_tool_capabilities = {
+			full_punch_interval=0.1,
+			damage_groups=
+			{	fleshy=50
+			,	wood=50
+			,	leaves=50
+			}
+		}
 	},
 })
 
@@ -86,7 +94,7 @@ minetest.register_chatcommand("kn_t", {
 		end
 		if nil ==KNOG_instance then return end
 		if "8"==param then
-			llog('Terminate')
+			llog('Terminated')
 			KNOG_instance.object:remove()
 			return
 		end
@@ -133,9 +141,19 @@ local check_flying_boulders = function(kn_inst)
 	b_pos.y = b_pos.y-1
 	if MARK_BOULDER==kn_inst.MARKING_WHAT then add_marker(kn_inst, b_pos) end					
 	local b_node=minetest.get_node(b_pos)
+	local radius=5
 	if "air" ~= b_node.name then 
+		local objs = minetest.get_objects_inside_radius(b_pos, radius)
+		for _, obj in pairs(objs) do
+			obj:punch(kn_inst.object, 1.0, {	fleshy=50
+			,	wood=50
+			,	leaves=50
+			}, nil )
+		end
 		kn_inst.flying_boulder:remove()
 		kn_inst.flying_boulder=nil
+		b_pos.y = b_pos.y+1
+		minetest.env:add_node(b_pos, {name="default:stone"})
 		return
 	end
 	local vel=kn_inst.flying_boulder:get_velocity()
@@ -744,7 +762,6 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				kn_pos.y = kn_pos.y + 4 -- TODO: see bounding box value
 				self.flying_boulder = minetest.add_entity(kn_pos, "knog:boulder")
 				self.flying_boulder:set_velocity( self.flying_boulder_velocity )
-				self.change_direction_and_walk(self)
 			end
 		end
 	,	do_towards_player = function(self) 
@@ -784,6 +801,15 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				if 99 < math.random(0,100) then -- TODO - adjust
 					self.change_direction_and_walk(self)	--> status_walking
 				else
+					self.object:set_animation (
+					{		x = self.animation.punch_start
+					,		y = self.animation.punch_start+20
+					} ,		self.animation.speed_normal
+					,		0
+					)
+					self.timer=20
+					self.timer_down=true
+					self.status="status_punchd_ent"
 					self.throw_boulder_at_target(self)
 				end
 			else -- 4 < distance
@@ -812,7 +838,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 	end
 	,	on_step = function(self, dtime)
 			check_env_damage(self)
-			check_flying_boulders(self)
+			if nil ~= self.flying_boulder then check_flying_boulders(self) end
 -- main routine for behaviour
 			local action
 			if ( true == self.timer_down ) then
