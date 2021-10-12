@@ -100,7 +100,8 @@ minetest.register_chatcommand("kn_t", {
 		end
 
 		local what_to_log, how_many_markers = param:match("(.+)%s+(.+)")
-		if nil == how_many_markers then how_many_markers=10 end
+		if nil== what_to_log then return end
+		if nil == how_many_markers or ""==how_many_markers then how_many_markers=10 end
 		KNOG_instance.MARKING_WHAT = 0+what_to_log
 		KNOG_instance.CURRENT_MARKERS = 0+how_many_markers
 		if KNOG_instance.CURRENT_MARKERS > KNOG_instance.TOTAL_MARKERS then 
@@ -145,10 +146,16 @@ local check_flying_boulders = function(kn_inst)
 	if "air" ~= b_node.name then 
 		local objs = minetest.get_objects_inside_radius(b_pos, radius)
 		for _, obj in pairs(objs) do
-			obj:punch(kn_inst.object, 1.0, {	fleshy=50
-			,	wood=50
-			,	leaves=50
-			}, nil )
+			if obj:is_player() then
+				obj:set_hp(obj:get_hp() - 50)
+				kn_inst.flying_boulder:remove()
+				kn_inst.flying_boulder=nil
+				local node_drops = minetest.get_node_drops("default:stone", nil)
+				for i=1, #node_drops do
+					minetest.add_item(b_pos, node_drops[i])
+				end
+			return
+			end
 		end
 		kn_inst.flying_boulder:remove()
 		kn_inst.flying_boulder=nil
@@ -169,7 +176,9 @@ local check_env_damage = function (self)
 	end
 	local kn_pos = self.object:get_pos()
 	kn_pos.y = kn_pos.y + 0.25
-	local standing_in = node_registered_or_nil(kn_pos).name
+	local standing_in_node = node_registered_or_nil(kn_pos)
+	if nil==standing_in_node then return end
+	local standing_in = standing_in_node.name
 	if nil ==standing_in then return end
 	local nodef = minetest.registered_nodes[standing_in]
 	if nodef.groups.water then
