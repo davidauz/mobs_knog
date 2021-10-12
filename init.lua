@@ -243,7 +243,7 @@ local do_advance = function(self) -- [
 	local jump_velocity=0
 	local sample_pos
 -- scanning the nodes in a vertical plane perpendicular to yaw
--- first scan for foliage TODO: may block when facing cliff and foliage over head
+-- first scan for foliage TODO: may get stuck when facing cliff and foliage over head
 	for vsr=self.collisionbox[5]+1, self.collisionbox[2], -1 do -- vertical scan range
 		for hsr=self.collisionbox[1]-1, self.collisionbox[4]+1 do -- horizontal scan range
 			for depth=1,2,0.5 do
@@ -744,8 +744,8 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 		end
 	,	throw_boulder_at_target = function(self)
 			local kn_pos = self.object:get_pos()
+			kn_pos.y=kn_pos.y+self.collisionbox[5]
 			local tg_pos = self.target_entity:get_pos()
-			kn_pos.y = kn_pos.y + 0.25
 			local boulder_node_name = node_registered_or_nil(kn_pos).name
 			if nil ~= boulder_node_name then
 				local xdelta=tg_pos.x - kn_pos.x
@@ -768,7 +768,6 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				,	z=zstep*5
 				}
 				minetest.remove_node(kn_pos)
-				kn_pos.y = kn_pos.y + 4 -- TODO: see bounding box value
 				self.flying_boulder = minetest.add_entity(kn_pos, "knog:boulder")
 				self.flying_boulder:set_velocity( self.flying_boulder_velocity )
 			end
@@ -807,7 +806,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				self.status="status_punchd_ent"
 			elseif 15<dist then
 -- too distant.  give up or throw boulder
-				if 99 < math.random(0,100) then -- TODO - adjust
+				if 99 < math.random(0,100) then -- TODO adjust
 					self.change_direction_and_walk(self)	--> status_walking
 				else
 					self.object:set_animation (
