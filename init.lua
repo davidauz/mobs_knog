@@ -139,11 +139,11 @@ local check_flying_boulders = function(kn_inst)
 	if nil == kn_inst.flying_boulder then return end
 	local b_pos = kn_inst.flying_boulder:get_pos()
 	if nil == b_pos then return end
-	b_pos.y = b_pos.y-1
+	b_pos.y = b_pos.y-1.5
 	if MARK_BOULDER==kn_inst.MARKING_WHAT then add_marker(kn_inst, b_pos) end					
 	local b_node=minetest.get_node(b_pos)
-	local radius=5
-	if "air" ~= b_node.name then 
+	local radius=3
+	if "air" ~= b_node.name and not string.find(b_node.name, "water") then 
 		local objs = minetest.get_objects_inside_radius(b_pos, radius)
 		for _, obj in pairs(objs) do
 			if obj:is_player() then
@@ -163,11 +163,6 @@ local check_flying_boulders = function(kn_inst)
 		minetest.env:add_node(b_pos, {name="default:stone"})
 		return
 	end
-	local vel=kn_inst.flying_boulder:get_velocity()
-	if nil == vel then return end
-	local yvel= vel.y-0.15
-	vel.y=yvel
-	kn_inst.flying_boulder:set_velocity( vel)
 end
 
 local check_env_damage = function (self)
@@ -327,7 +322,7 @@ local do_advance = function(self) -- [
 		local v = self.object:get_velocity()
 		v.y = jump_velocity
 		self.object:set_velocity(v)
-		self.set_velocity_to_yaw(self)
+		self.set_velocity_to_yaw(self, 1)
 	end
 	return false
 end -- ]
@@ -356,7 +351,6 @@ minetest.register_entity("mobs_knog:knog",
 	,	ENTITY_SEARCH_RADIUS=35
 	,	markers_positions = {}
 	,	flying_boulder = nil
-	,	flying_boulder_velocity = {x=0,y=0,z=0}
 	,	markers_index = 1
 	,	MARKING_WHAT = 0
 	,	MAX_HEALTH = 500
@@ -487,15 +481,15 @@ minetest.register_entity("mobs_knog:knog",
 --				z = 0
 --			})
 --	end
-	,	set_velocity_to_yaw = function(self)
+	,	set_velocity_to_yaw = function(self, multiplier)
 			local yaw = self.object:get_yaw()
 			local x = math.sin(yaw) * -1
 			local z = math.cos(yaw)
  			local y = self.object:get_velocity().y
  			self.object:set_velocity({
-				x = x,
-				y = y,
-				z = z
+				x = multiplier*x,
+				y = multiplier*y,
+				z = multiplier*z
  			})
 		end
 	,	set_yaw_towards_target = function(self, target_position)
@@ -544,7 +538,7 @@ minetest.register_entity("mobs_knog:knog",
 			if nil ~= self.target_position then
 				self.set_yaw_towards_target(self, self.target_position)
 				self.status="status_walking_to_target"
-				self.set_velocity_to_yaw(self)
+				self.set_velocity_to_yaw(self, 1.5)
 				self.object:set_animation (
 				{		x = self.animation.walk_start
 				,		y = self.animation.walk_end 
@@ -597,7 +591,7 @@ minetest.register_entity("mobs_knog:knog",
 		end
 	,	change_direction_and_walk = function(self)
 			self.object:set_yaw( self.object:get_yaw() + math.random(-0.2,0.2) )
-			self.set_velocity_to_yaw(self)
+			self.set_velocity_to_yaw(self, 1)
 			self.status="status_walking"
 			self.object:set_animation (
 			{		x = self.animation.walk_start
@@ -689,7 +683,7 @@ minetest.register_entity("mobs_knog:knog",
 				} ,		self.animation.speed_normal
 				,		0
 				)
-				self.set_velocity_to_yaw(self)
+				self.set_velocity_to_yaw(self, 1)
 			end
 		end
 	,	do_towards_entity = function(self) 
@@ -739,7 +733,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				} ,		self.animation.speed_normal
 				,		0
 				)
-				self.set_velocity_to_yaw(self)
+				self.set_velocity_to_yaw(self, 1)
 			end
 		end
 	,	throw_boulder_at_target = function(self)
@@ -748,28 +742,29 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 			local tg_pos = self.target_entity:get_pos()
 			local boulder_node_name = node_registered_or_nil(kn_pos).name
 			if nil ~= boulder_node_name then
+				local Vabs=10
+				local Vgravity=-10
 				local xdelta=tg_pos.x - kn_pos.x
-				local ydelta=tg_pos.y - kn_pos.y
 				local zdelta=tg_pos.z - kn_pos.z
+				local hor_dist=math.sqrt(xdelta*xdelta+zdelta*zdelta)
+				local vx=Vabs*xdelta/hor_dist
+				local vz=Vabs*zdelta/hor_dist
 
-				local axdelta=math.abs(xdelta)
-				local aydelta=math.abs(ydelta)
-				local azdelta=math.abs(zdelta)
-
-				local max_delta = math.max(axdelta, aydelta)
-				max_delta = math.max(max_delta, azdelta)
-				local xstep=xdelta/max_delta
-				local ystep=ydelta/max_delta
-				local zstep=zdelta/max_delta
-				local vy=(ydelta+(max_delta+1)*(max_delta/2))/max_delta
-				self.flying_boulder_velocity = 
-				{	x=xstep*5
-				,	y=vy
-				,	z=zstep*5
-				}
-				minetest.remove_node(kn_pos)
+				local ydelta=tg_pos.y - kn_pos.y
+				local Tt=math.abs(xdelta/vx)
+				local vy=(ydelta-(Vgravity)*(Tt+1)*(Tt/2))/Tt
+				
 				self.flying_boulder = minetest.add_entity(kn_pos, "knog:boulder")
-				self.flying_boulder:set_velocity( self.flying_boulder_velocity )
+				self.flying_boulder:set_velocity(
+				{	x=vx
+				,	y=vy
+				,	z=vz
+				})
+				self.flying_boulder:set_acceleration(
+				{	x=0
+				,	y=Vgravity
+				,	z=0
+				})
 			end
 		end
 	,	do_towards_player = function(self) 
@@ -831,7 +826,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				} ,		self.animation.speed_fly
 				,		0
 				)
-				self.set_velocity_to_yaw(self)
+				self.set_velocity_to_yaw(self, 1)
 			end
 		end
 	,	choose_random_action = function(self)
