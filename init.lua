@@ -11,6 +11,30 @@ local MARK_TARGET_ENTITY = 3
 local MARK_WATER = 4
 local MARK_RAYCAST_BUILDING=5
 local MARK_HIGHLIGHT_BUILDING=6
+local MARK_BOULDER=7
+
+minetest.register_entity(":knog:boulder", {
+	initial_properties = {
+		visual = "cube",
+		visual_size = {x=1.5, y=1.5, z=1.5},
+		textures = {"knog_boulder.png", "knog_boulder.png",
+			"knog_boulder.png", "knog_boulder.png",
+			"knog_boulder.png", "knog_boulder.png"},
+		collisionbox = {-0.75, -0.75, -0.75, 0.75, 0.75, 0.75},
+		physical = true,
+		static_save = false,
+		b_tool_capabilities = {
+			full_punch_interval=0.1,
+			damage_groups=
+			{	fleshy=50
+			,	wood=50
+			,	leaves=50
+			}
+		}
+	},
+})
+
+
 
 -- used for debug
 minetest.register_entity(":knog:marker", {
@@ -46,7 +70,7 @@ end
 minetest.register_chatcommand("kn_t", {
 	description = 'KNOG TEST FUNCTIO -- debugN',
 	params = "<what>",
-	func = function(name,param)
+	func = function(player_name,param)
 		local KNOG_instance=nil
 		if ""==param then
 			return
@@ -59,7 +83,8 @@ minetest.register_chatcommand("kn_t", {
 			llog("MARK_WATER = 4")
 			llog("MARK_RAYCAST_BUILDING=5")
 			llog("MARK_HIGHLIGHT_BUILDING=6")
---			llog("ATTACK_BUILDING=7")
+			llog("MARK boulder=7")
+			llog("TERMINATE=8")
 			return
 		end
 		for index,an_entity in pairs(minetest.luaentities) do
@@ -68,16 +93,15 @@ minetest.register_chatcommand("kn_t", {
 			end
 		end
 		if nil ==KNOG_instance then return end
---		if "7"==param then
---			KNOG_instance.target_type= "building"
---			KNOG_instance.target_position = minetest.get_player_by_name('xxxx'):get_pos()
---			KNOG_instance.status="status_targeted"
---			KNOG_instance.timer=25
---			KNOG_instance.timer_down=true
---			return
---		end
+		if "8"==param then
+			llog('Terminated')
+			KNOG_instance.object:remove()
+			return
+		end
 
 		local what_to_log, how_many_markers = param:match("(.+)%s+(.+)")
+		if nil== what_to_log then return end
+		if nil == how_many_markers or ""==how_many_markers then how_many_markers=10 end
 		KNOG_instance.MARKING_WHAT = 0+what_to_log
 		KNOG_instance.CURRENT_MARKERS = 0+how_many_markers
 		if KNOG_instance.CURRENT_MARKERS > KNOG_instance.TOTAL_MARKERS then 
@@ -111,6 +135,35 @@ local get_velocity = function(self)
 	return (v.x * v.x + v.z * v.z) ^ 0.5
 end
 
+local check_flying_boulders = function(kn_inst)
+	if nil == kn_inst.flying_boulder then return end
+	local b_pos = kn_inst.flying_boulder:get_pos()
+	if nil == b_pos then return end
+	b_pos.y = b_pos.y-1.5
+	if MARK_BOULDER==kn_inst.MARKING_WHAT then add_marker(kn_inst, b_pos) end					
+	local b_node=minetest.get_node(b_pos)
+	local radius=3
+	if "air" ~= b_node.name and not string.find(b_node.name, "water") then 
+		local objs = minetest.get_objects_inside_radius(b_pos, radius)
+		for _, obj in pairs(objs) do
+			if obj:is_player() then
+				obj:set_hp(obj:get_hp() - 50)
+				kn_inst.flying_boulder:remove()
+				kn_inst.flying_boulder=nil
+				local node_drops = minetest.get_node_drops("default:stone", nil)
+				for i=1, #node_drops do
+					minetest.add_item(b_pos, node_drops[i])
+				end
+			return
+			end
+		end
+		kn_inst.flying_boulder:remove()
+		kn_inst.flying_boulder=nil
+		b_pos.y = b_pos.y+1
+		minetest.env:add_node(b_pos, {name="default:stone"})
+		return
+	end
+end
 
 local check_env_damage = function (self)
 	if 5 > self.object:get_hp() then
@@ -118,7 +171,9 @@ local check_env_damage = function (self)
 	end
 	local kn_pos = self.object:get_pos()
 	kn_pos.y = kn_pos.y + 0.25
-	local standing_in = node_registered_or_nil(kn_pos).name
+	local standing_in_node = node_registered_or_nil(kn_pos)
+	if nil==standing_in_node then return end
+	local standing_in = standing_in_node.name
 	if nil ==standing_in then return end
 	local nodef = minetest.registered_nodes[standing_in]
 	if nodef.groups.water then
@@ -152,7 +207,7 @@ local stand_and_do_nothing = function(self)
 	self.timer_down=true
 end
 
-local add_marker = function (self, pos)
+function add_marker(self, pos)
 	local curr_marker_struct = self.markers_positions[ self.markers_index ]
 	if nil ~= curr_marker_struct then
 		curr_marker_struct:remove()
@@ -183,7 +238,7 @@ local do_advance = function(self) -- [
 	local jump_velocity=0
 	local sample_pos
 -- scanning the nodes in a vertical plane perpendicular to yaw
--- first scan for foliage
+-- first scan for foliage TODO: may get stuck when facing cliff and foliage over head
 	for vsr=self.collisionbox[5]+1, self.collisionbox[2], -1 do -- vertical scan range
 		for hsr=self.collisionbox[1]-1, self.collisionbox[4]+1 do -- horizontal scan range
 			for depth=1,2,0.5 do
@@ -267,7 +322,7 @@ local do_advance = function(self) -- [
 		local v = self.object:get_velocity()
 		v.y = jump_velocity
 		self.object:set_velocity(v)
-		self.set_velocity_to_yaw(self)
+		self.set_velocity_to_yaw(self, 1)
 	end
 	return false
 end -- ]
@@ -295,6 +350,7 @@ minetest.register_entity("mobs_knog:knog",
 	,	BUILDING_SEARCH_RANGE=35
 	,	ENTITY_SEARCH_RADIUS=35
 	,	markers_positions = {}
+	,	flying_boulder = nil
 	,	markers_index = 1
 	,	MARKING_WHAT = 0
 	,	MAX_HEALTH = 500
@@ -425,15 +481,15 @@ minetest.register_entity("mobs_knog:knog",
 --				z = 0
 --			})
 --	end
-	,	set_velocity_to_yaw = function(self)
+	,	set_velocity_to_yaw = function(self, multiplier)
 			local yaw = self.object:get_yaw()
 			local x = math.sin(yaw) * -1
 			local z = math.cos(yaw)
  			local y = self.object:get_velocity().y
  			self.object:set_velocity({
-				x = x,
-				y = y,
-				z = z
+				x = multiplier*x,
+				y = multiplier*y,
+				z = multiplier*z
  			})
 		end
 	,	set_yaw_towards_target = function(self, target_position)
@@ -482,7 +538,7 @@ minetest.register_entity("mobs_knog:knog",
 			if nil ~= self.target_position then
 				self.set_yaw_towards_target(self, self.target_position)
 				self.status="status_walking_to_target"
-				self.set_velocity_to_yaw(self)
+				self.set_velocity_to_yaw(self, 1.5)
 				self.object:set_animation (
 				{		x = self.animation.walk_start
 				,		y = self.animation.walk_end 
@@ -501,7 +557,7 @@ minetest.register_entity("mobs_knog:knog",
 			self.target_type = nil
 			self.look_for_entity(self)
 			if self.target_type == nil then -- no entity found
-				if(6<math.random(0,10)) then -- TODO: adjust this
+				if(5<math.random(0,10)) then
 					self.look_for_building(self)
 				end
 			end
@@ -535,7 +591,7 @@ minetest.register_entity("mobs_knog:knog",
 		end
 	,	change_direction_and_walk = function(self)
 			self.object:set_yaw( self.object:get_yaw() + math.random(-0.2,0.2) )
-			self.set_velocity_to_yaw(self)
+			self.set_velocity_to_yaw(self, 1)
 			self.status="status_walking"
 			self.object:set_animation (
 			{		x = self.animation.walk_start
@@ -627,7 +683,7 @@ minetest.register_entity("mobs_knog:knog",
 				} ,		self.animation.speed_normal
 				,		0
 				)
-				self.set_velocity_to_yaw(self)
+				self.set_velocity_to_yaw(self, 1)
 			end
 		end
 	,	do_towards_entity = function(self) 
@@ -677,7 +733,38 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				} ,		self.animation.speed_normal
 				,		0
 				)
-				self.set_velocity_to_yaw(self)
+				self.set_velocity_to_yaw(self, 1)
+			end
+		end
+	,	throw_boulder_at_target = function(self)
+			local kn_pos = self.object:get_pos()
+			kn_pos.y=kn_pos.y+self.collisionbox[5]
+			local tg_pos = self.target_entity:get_pos()
+			local boulder_node_name = node_registered_or_nil(kn_pos).name
+			if nil ~= boulder_node_name then
+				local Vabs=10
+				local Vgravity=-10
+				local xdelta=tg_pos.x - kn_pos.x
+				local zdelta=tg_pos.z - kn_pos.z
+				local hor_dist=math.sqrt(xdelta*xdelta+zdelta*zdelta)
+				local vx=Vabs*xdelta/hor_dist
+				local vz=Vabs*zdelta/hor_dist
+
+				local ydelta=tg_pos.y - kn_pos.y
+				local Tt=math.abs(xdelta/vx)
+				local vy=(ydelta-(Vgravity)*(Tt+1)*(Tt/2))/Tt
+				
+				self.flying_boulder = minetest.add_entity(kn_pos, "knog:boulder")
+				self.flying_boulder:set_velocity(
+				{	x=vx
+				,	y=vy
+				,	z=vz
+				})
+				self.flying_boulder:set_acceleration(
+				{	x=0
+				,	y=Vgravity
+				,	z=0
+				})
 			end
 		end
 	,	do_towards_player = function(self) 
@@ -692,6 +779,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				return
 			end
 			if(4>dist) then
+-- we are very close: SMASH!
 				self.object:set_animation (
 				{		x = self.animation.punch_start
 				,		y = self.animation.punch_start+20
@@ -711,6 +799,22 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				end
 				self.target_entity:punch(self.object, 1.0, self.k_tool_capabilities, nil )
 				self.status="status_punchd_ent"
+			elseif 15<dist then
+-- too distant.  give up or throw boulder
+				if 99 < math.random(0,100) then -- TODO adjust
+					self.change_direction_and_walk(self)	--> status_walking
+				else
+					self.object:set_animation (
+					{		x = self.animation.punch_start
+					,		y = self.animation.punch_start+20
+					} ,		self.animation.speed_normal
+					,		0
+					)
+					self.timer=20
+					self.timer_down=true
+					self.status="status_punchd_ent"
+					self.throw_boulder_at_target(self)
+				end
 			else -- 4 < distance
 -- still far from target entity
 				do_advance(self)
@@ -722,7 +826,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				} ,		self.animation.speed_fly
 				,		0
 				)
-				self.set_velocity_to_yaw(self)
+				self.set_velocity_to_yaw(self, 1)
 			end
 		end
 	,	choose_random_action = function(self)
@@ -737,6 +841,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 	end
 	,	on_step = function(self, dtime)
 			check_env_damage(self)
+			if nil ~= self.flying_boulder then check_flying_boulders(self) end
 -- main routine for behaviour
 			local action
 			if ( true == self.timer_down ) then
