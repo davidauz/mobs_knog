@@ -85,6 +85,7 @@ minetest.register_chatcommand("kn_t", {
 			llog("MARK_HIGHLIGHT_BUILDING=6")
 			llog("MARK boulder=7")
 			llog("TERMINATE=8")
+			llog("THROW=9")
 			return
 		end
 		for index,an_entity in pairs(minetest.luaentities) do
@@ -96,6 +97,11 @@ minetest.register_chatcommand("kn_t", {
 		if "8"==param then
 			llog('Terminated')
 			KNOG_instance.object:remove()
+			return
+		end
+		if "9"==param then
+			KNOG_instance.target_entity= minetest.get_player_by_name(player_name)
+			KNOG_instance.throw_boulder_at_target( KNOG_instance )
 			return
 		end
 
@@ -688,6 +694,8 @@ minetest.register_entity("mobs_knog:knog",
 		end
 	,	do_towards_entity = function(self) 
 -- update target position (entity may move)
+			if nil == self.target_entity then return end
+			if nil == self.target_entity.object then return end
 			self.target_position = self.target_entity.object:get_pos()
 			local dist= get_distance_horizontal(self.object:get_pos(), self.target_position)
 			if nil == dist then -- something went really wrong
@@ -738,34 +746,30 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 		end
 	,	throw_boulder_at_target = function(self)
 			local kn_pos = self.object:get_pos()
-			kn_pos.y=kn_pos.y+self.collisionbox[5]
+			kn_pos.y=kn_pos.y+self.collisionbox[5] -- ymax
 			local tg_pos = self.target_entity:get_pos()
-			local boulder_node_name = node_registered_or_nil(kn_pos).name
-			if nil ~= boulder_node_name then
-				local Vabs=10
-				local Vgravity=-10
-				local xdelta=tg_pos.x - kn_pos.x
-				local zdelta=tg_pos.z - kn_pos.z
-				local hor_dist=math.sqrt(xdelta*xdelta+zdelta*zdelta)
-				local vx=Vabs*xdelta/hor_dist
-				local vz=Vabs*zdelta/hor_dist
-
-				local ydelta=tg_pos.y - kn_pos.y
-				local Tt=math.abs(xdelta/vx)
-				local vy=(ydelta-(Vgravity)*(Tt+1)*(Tt/2))/Tt
-				
-				self.flying_boulder = minetest.add_entity(kn_pos, "knog:boulder")
-				self.flying_boulder:set_velocity(
-				{	x=vx
-				,	y=vy
-				,	z=vz
-				})
-				self.flying_boulder:set_acceleration(
-				{	x=0
-				,	y=Vgravity
-				,	z=0
-				})
-			end
+			local Vxz=10 -- XZ scalar velocity of boulder
+			local Vgravity=-10
+			local xdelta=tg_pos.x - kn_pos.x
+			local zdelta=tg_pos.z - kn_pos.z
+			local hor_dist=math.sqrt(xdelta*xdelta+zdelta*zdelta)
+			local vx=Vxz*xdelta/hor_dist
+			local vz=Vxz*zdelta/hor_dist
+			local Tt=hor_dist/Vxz -- time to target
+			local vy=(tg_pos.y-kn_pos.y-Vgravity*((Tt-1)*Tt/2))/Tt
+			local Yt=tg_pos.y-kn_pos.y
+			local vy=(Yt-Vgravity*Tt*Tt/2)/Tt
+			self.flying_boulder = minetest.add_entity(kn_pos, "knog:boulder")
+			self.flying_boulder:set_velocity(
+			{	x=vx
+			,	y=vy
+			,	z=vz
+			})
+			self.flying_boulder:set_acceleration(
+			{	x=0
+			,	y=Vgravity
+			,	z=0
+			})
 		end
 	,	do_towards_player = function(self) 
 -- update target position (target may move)
