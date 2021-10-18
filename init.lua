@@ -805,7 +805,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				self.status="status_punchd_ent"
 			elseif 15<dist then
 -- too distant.  give up or throw boulder
-				if 99 < math.random(0,100) then -- TODO adjust
+				if 60 < math.random(0,100) then
 					self.change_direction_and_walk(self)	--> status_walking
 				else
 					self.object:set_animation (
