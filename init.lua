@@ -12,6 +12,9 @@ local MARK_WATER = 4
 local MARK_RAYCAST_BUILDING=5
 local MARK_HIGHLIGHT_BUILDING=6
 local MARK_BOULDER=7
+local VELOCITY_NORMAL=1
+local VELOCITY_TOWARDS_ENTITY=2
+local VELOCITY_TOWARDS_PLAYER=3
 
 
 
@@ -159,27 +162,15 @@ local check_flying_boulders = function(kn_inst)
 	b_pos.y = b_pos.y-1.5
 	if MARK_BOULDER==kn_inst.MARKING_WHAT then add_marker(kn_inst, b_pos) end					
 	local b_node=minetest.get_node(b_pos)
-	local radius=3
-	if "air" ~= b_node.name and not string.find(b_node.name, "water") then 
-		local objs = minetest.get_objects_inside_radius(b_pos, radius)
-		for _, obj in pairs(objs) do
-			if obj:is_player() then
-				obj:set_hp(obj:get_hp() - 50)
-				kn_inst.flying_boulder:remove()
-				kn_inst.flying_boulder=nil
-				local node_drops = minetest.get_node_drops("default:stone", nil)
-				for i=1, #node_drops do
-					minetest.add_item(b_pos, node_drops[i])
-				end
-			return
-			end
-		end
-		kn_inst.flying_boulder:remove()
-		kn_inst.flying_boulder=nil
-		b_pos.y = b_pos.y+1
-		minetest.env:add_node(b_pos, {name="default:stone"})
-		return
-	end
+	if	"air" == b_node.name 
+	or	string.find(b_node.name, "water") 
+--	or	string.find(b_node.name, "grass") 
+	then return end
+-- hit something
+	kn_inst.flying_boulder:remove()
+	kn_inst.flying_boulder=nil
+	b_pos.y = b_pos.y+1
+	minetest.env:add_node(b_pos, {name="default:stone"})
 end
 
 local check_env_damage = function (self)
@@ -291,7 +282,7 @@ local do_advance = function(self) -- [
 -- here we are sure there is no foliage; look for solid objects to jump over
 	for vsr=self.collisionbox[5], self.collisionbox[2], -1 do -- vertical scan range
 		for hsr=self.collisionbox[1], self.collisionbox[4] do -- horizontal scan range
-			for depth=1,1.5,0.5 do
+			for depth=1.5,2,0.5 do
 				sample_pos={
 					x=pos.x+depth*mfx+fvz*hsr, -- using fvz on X to go left because cos(a-PI/2) = -sin(a)
 					y=pos.y+vsr,
@@ -340,7 +331,7 @@ local do_advance = function(self) -- [
 		local v = self.object:get_velocity()
 		v.y = jump_velocity
 		self.object:set_velocity(v)
-		self.set_velocity_to_yaw(self, 1)
+		self.set_velocity_to_yaw(self, VELOCITY_NORMAL)
 	end
 	return false
 end -- ]
@@ -415,7 +406,15 @@ minetest.register_entity("mobs_knog:knog",
 	}
 	,	on_death = function(self, killer)
 		local	pos=self.object:get_pos()
-		minetest.add_item(pos, "mobs_knog:meat_chunk")
+		pos.y = pos.y+2
+		local obj
+		for i=1, 20 do
+			obj=minetest.add_item(pos, "mobs_knog:meat_chunk")
+			obj:set_acceleration({x = 0, y = -10, z = 0})
+			obj:set_velocity({x = math.random(-1, 1),
+					y = math.random(0, 5),
+					z = math.random(-1, 1)})
+		end
 	end
 	,	on_activate = function(self, staticdata)
 			self.object:set_acceleration({x=0, y=-10, z=0})
@@ -547,7 +546,7 @@ minetest.register_entity("mobs_knog:knog",
 			self.target_entity = nil
 			self.status="status_stand"
 		end
-	, check_target_action = function(self)
+	,	check_target_action = function(self)
 			if ( "building" == self.target_type ) then
 				self.do_towards_building(self)
 			elseif ( "player" == self.target_type ) then
@@ -560,7 +559,7 @@ minetest.register_entity("mobs_knog:knog",
 			if nil ~= self.target_position then
 				self.set_yaw_towards_target(self, self.target_position)
 				self.status="status_walking_to_target"
-				self.set_velocity_to_yaw(self, 1.5)
+				self.set_velocity_to_yaw(self, VELOCITY_TOWARDS_ENTITY)
 				self.object:set_animation (
 				{		x = self.animation.walk_start
 				,		y = self.animation.walk_end 
@@ -613,7 +612,7 @@ minetest.register_entity("mobs_knog:knog",
 		end
 	,	change_direction_and_walk = function(self)
 			self.object:set_yaw( self.object:get_yaw() + math.random(-0.2,0.2) )
-			self.set_velocity_to_yaw(self, 1)
+			self.set_velocity_to_yaw(self, VELOCITY_NORMAL)
 			self.status="status_walking"
 			self.object:set_animation (
 			{		x = self.animation.walk_start
@@ -705,7 +704,7 @@ minetest.register_entity("mobs_knog:knog",
 				} ,		self.animation.speed_normal
 				,		0
 				)
-				self.set_velocity_to_yaw(self, 1)
+				self.set_velocity_to_yaw(self, VELOCITY_NORMAL)
 			end
 		end
 	,	do_towards_entity = function(self) 
@@ -757,7 +756,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				} ,		self.animation.speed_normal
 				,		0
 				)
-				self.set_velocity_to_yaw(self, 1)
+				self.set_velocity_to_yaw(self, VELOCITY_TOWARDS_ENTITY)
 			end
 		end
 	,	throw_boulder_at_target = function(self)
@@ -821,7 +820,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				self.status="status_punchd_ent"
 			elseif 15<dist then
 -- too distant.  give up or throw boulder
-				if 60 < math.random(0,100) then
+				if 60 < math.random(0,100) or nil ~= self.flying_boulder then
 					self.change_direction_and_walk(self)	--> status_walking
 				else
 					self.object:set_animation (
@@ -846,7 +845,7 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 				} ,		self.animation.speed_fly
 				,		0
 				)
-				self.set_velocity_to_yaw(self, 1)
+				self.set_velocity_to_yaw(self, VELOCITY_TOWARDS_PLAYER)
 			end
 		end
 	,	choose_random_action = function(self)
