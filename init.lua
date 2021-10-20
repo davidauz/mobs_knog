@@ -13,6 +13,17 @@ local MARK_RAYCAST_BUILDING=5
 local MARK_HIGHLIGHT_BUILDING=6
 local MARK_BOULDER=7
 
+
+
+-- raw meat
+minetest.register_craftitem("mobs_knog:meat_chunk", {
+	description = "Chunk of meat",
+	inventory_image = "meat_chunk.png",
+	on_use = minetest.item_eat(10),
+})
+
+
+
 minetest.register_entity(":knog:boulder", {
 	initial_properties = {
 		visual = "cube",
@@ -68,7 +79,7 @@ end
 
 
 minetest.register_chatcommand("kn_t", {
-	description = 'KNOG TEST FUNCTIO -- debugN',
+	description = 'KNOG TEST FUNCTION -- debug',
 	params = "<what>",
 	func = function(player_name,param)
 		local KNOG_instance=nil
@@ -194,6 +205,7 @@ local check_env_damage = function (self)
 		return
 	end
 end
+
 
 local stand_and_do_nothing = function(self)
 	self.timer_down=true
@@ -401,6 +413,10 @@ minetest.register_entity("mobs_knog:knog",
 	,		punch_loop = true
 	,		current=""
 	}
+	,	on_death = function(self, killer)
+		local	pos=self.object:get_pos()
+		minetest.add_item(pos, "mobs_knog:meat_chunk")
+	end
 	,	on_activate = function(self, staticdata)
 			self.object:set_acceleration({x=0, y=-10, z=0})
 			self.object:set_hp(self.MAX_HEALTH)
