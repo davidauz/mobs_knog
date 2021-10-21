@@ -173,10 +173,9 @@ local check_flying_boulders = function(kn_inst)
 	minetest.env:add_node(b_pos, {name="default:stone"})
 end
 
+-- Return: Whether knog died. If true, Do not do anything further with knog as
+-- the enitity has already been destroyed.
 local check_env_damage = function (self)
-	if 5 > self.object:get_hp() then
-		self.object:remove()
-	end
 	local kn_pos = self.object:get_pos()
 	kn_pos.y = kn_pos.y + 0.25
 	local standing_in_node = node_registered_or_nil(kn_pos)
@@ -186,15 +185,24 @@ local check_env_damage = function (self)
 	local nodef = minetest.registered_nodes[standing_in]
 	if nodef.groups.water then
 		self.object:set_hp( self.object:get_hp() - self.BASE_ENV_DAMAGE )
-		return
 	end
 	if	nodef.groups.lava
 	or	string.find(nodef.name, "fire") 
 	or	string.find(nodef.name, "lava") 
 	then
 		self.object:set_hp( self.object:get_hp() - 3*self.BASE_ENV_DAMAGE )
-		return
 	end
+
+    if (self.object:get_hp() <= 0) then
+        self.object:remove()
+        -- Temp. fix for boulders staying around permanently. Boulder logic 
+        -- should be moved to the boulder entity definition and not bound to
+        -- a specific Knog
+		if (self.flying_boulder) then
+			self.flying_boulder:remove()
+		end
+        return true
+    end
 end
 
 
@@ -369,6 +377,7 @@ minetest.register_entity("mobs_knog:knog",
 	,	target_position = nil
 	,	visual = "mesh"
 	,	timer=20
+	,	env_damage_timer = 0
         ,	physical = true
 	,	visual_size = {x=8, y=8}
 	,	k_tool_capabilities = {
@@ -859,7 +868,19 @@ llog("NIL!:"..dump(self)) -- error - should not happen
 			end
 	end
 	,	on_step = function(self, dtime)
-			check_env_damage(self)
+			-- Check for damage every second
+			local env_damage_timer = self.env_damage_timer
+			env_damage_timer = env_damage_timer + dtime
+			if (env_damage_timer > 1) then
+				self.env_damage_timer = 0
+				local died = check_env_damage(self)
+				if (died) then
+					return
+				end
+			else
+				self.env_damage_timer = env_damage_timer
+			end
+
 			if nil ~= self.flying_boulder then check_flying_boulders(self) end
 -- main routine for behaviour
 			local action
