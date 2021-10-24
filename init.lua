@@ -6,10 +6,6 @@ dofile(path .. "/boulder.lua")
 dofile(path .. "/generic_functions.lua")
 dofile(path .. "/kn_functions.lua")
 
-function llog(message)
-	minetest.log(message)
-	minetest.chat_send_all(message)
-end
 
 -- raw meat
 minetest.register_craftitem("mobs_knog:meat_chunk", {
@@ -17,8 +13,6 @@ minetest.register_craftitem("mobs_knog:meat_chunk", {
 	inventory_image = "meat_chunk.png",
 	on_use = minetest.item_eat(10),
 })
-
-
 
 
 -- used for debug
@@ -102,34 +96,6 @@ llog("marking '"..KNOG_instance.CURRENT_MARKERS.."' of '"..KNOG_instance.MARKING
 })
 
 
-
--- Return: Whether knog died. If true, Do not do anything further with knog as
--- the enitity has already been destroyed.
-local check_env_damage = function (self)
-	local kn_pos = self.object:get_pos()
-	kn_pos.y = kn_pos.y + 0.25
-	local standing_in_node = node_registered_or_nil(kn_pos)
-	if nil==standing_in_node then return end
-	local standing_in = standing_in_node.name
-	if nil ==standing_in then return end
-	local nodef = minetest.registered_nodes[standing_in]
-	if nodef.groups.water then
-		self.object:set_hp( self.object:get_hp() - self.BASE_ENV_DAMAGE )
-	end
-	if	nodef.groups.lava
-	or	string.find(nodef.name, "fire") 
-	or	string.find(nodef.name, "lava") 
-	then
-		self.object:set_hp( self.object:get_hp() - 3*self.BASE_ENV_DAMAGE )
-	end
-
-    if (self.object:get_hp() <= 0) then
-        self.object:remove()
-        return true
-    end
-end
-
-
 function add_marker(self, pos)
 	local curr_marker_struct = self.markers_positions[ self.markers_index ]
 	if nil ~= curr_marker_struct then
@@ -145,10 +111,6 @@ end
 
 
 mobs:register_egg("mobs_knog:knog", "Knog", "knog_egg.png", 1)
-
-
-
-
 
 
 minetest.register_entity("mobs_knog:knog", 
@@ -253,22 +215,21 @@ minetest.register_entity("mobs_knog:knog",
 				self.env_damage_timer = env_damage_timer
 			end
 -- main routine for behaviour
-			local action
 			if ( true == self.timer_down ) then
 				self.timer = self.timer - 1
 				if( 0 > self.timer ) then
--- finite automaton for choosing next action on the basis of the last finished one
+-- finite automaton for choosing next action on the basis of the previous one
 					local next_actions = {
 						["status_targeted"] = function(x) do_walk_to_target(x) end,	-->	status_walking_to_target
-															-->	status_stand
+														-->	status_stand
 
 						["status_walking_to_target"] = function(x) check_target_action(x) end, --> status_building_down
 
 						["status_building_down"] = function(x) do_building_down(x) end,	-->	status_stand
 
 						["status_stand"] = function(x) choose_random_action(x) end, 	-->	status_walking
-															--	status_targeted
-															--	status_stand
+														--	status_targeted
+														--	status_stand
 
 						["status_punchd_ent"] =  function(x) choose_random_action(x) end, 	-->	status_walking
 															--	status_targeted

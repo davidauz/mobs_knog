@@ -1,5 +1,10 @@
 
-get_distance_horizontal = function(a, b)
+function llog(message)
+	minetest.log(message)
+	minetest.chat_send_all(message)
+end
+
+function get_distance_horizontal(a, b)
 	if(nil == b) then
 		llog("b is NIL!")
 	else
@@ -17,13 +22,13 @@ function node_registered_or_nil(pos)
 	return nil
 end
 
-get_velocity = function(self)
+function get_velocity  (self)
 	local v = self.object:get_velocity()
 	return (v.x * v.x + v.z * v.z) ^ 0.5
 end
 
 
-get_distance = function(a, b)
+function get_distance  (a, b)
 	if(nil == b) then
 		minetest.log("get_distance: b is NIL!")
 	else
@@ -33,7 +38,7 @@ get_distance = function(a, b)
 end
 
 
-set_velocity_to_yaw = function(self, multiplier)
+function set_velocity_to_yaw  (self, multiplier)
 	local yaw = self.object:get_yaw()
 	local x = math.sin(yaw) * -1
 	local z = math.cos(yaw)
@@ -46,7 +51,7 @@ set_velocity_to_yaw = function(self, multiplier)
 end
 
 
-set_yaw_towards_target = function(self, target_position)
+function set_yaw_towards_target  (self, target_position)
 	local s = self.object:get_pos()
 	local p = target_position
 	if	s.x == p.x

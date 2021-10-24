@@ -577,3 +577,32 @@ end
 
 
 
+-- Return: Whether knog died. If true, Do not do anything further with knog as
+-- the entity has already been destroyed.
+function check_env_damage(kn_inst)
+	local kn_pos = kn_inst.object:get_pos()
+	kn_pos.y = kn_pos.y + 0.25
+	local standing_in_node = node_registered_or_nil(kn_pos)
+	if nil==standing_in_node then return end
+	local standing_in = standing_in_node.name
+	if nil ==standing_in then return end
+	local nodef = minetest.registered_nodes[standing_in]
+	if nodef.groups.water then
+		kn_inst.object:set_hp( kn_inst.object:get_hp() - kn_inst.BASE_ENV_DAMAGE )
+	end
+	if	nodef.groups.lava
+	or	string.find(nodef.name, "fire") 
+	or	string.find(nodef.name, "lava") 
+	then
+		kn_inst.object:set_hp( kn_inst.object:get_hp() - 3*kn_inst.BASE_ENV_DAMAGE )
+	end
+
+    if (kn_inst.object:get_hp() <= 0) then
+        kn_inst.object:remove()
+        return true
+    end
+end
+
+
+
+
