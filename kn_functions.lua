@@ -33,7 +33,7 @@ end
 
 
 
-do_advance = function(kn_inst) -- [
+function do_advance (kn_inst) -- [
 	if get_velocity(kn_inst) > 0.5
 	and kn_inst.object:get_velocity().y ~= 0 then
 		return false -- already jumping
@@ -63,7 +63,9 @@ do_advance = function(kn_inst) -- [
 				if MARK_FOLIAGE==kn_inst.MARKING_WHAT then add_marker(kn_inst, sample_pos) end
 				nod=node_registered_or_nil(sample_pos)
 				if nod ~= nil then
-					if ( minetest.get_item_group(nod.name, "tree")>0 
+					if nod.name == "default:apple" then
+--					EATING APPLE
+					elseif ( minetest.get_item_group(nod.name, "tree")>0 
 					or minetest.get_item_group(nod.name, "leaves")>0 ) then
 -- special case of animation ouside the finite state automaton just to clear passage in woods
 						kn_inst.object:set_animation (

@@ -55,6 +55,7 @@ minetest.register_chatcommand("kn_t", {
 			llog("MARK boulder=7")
 			llog("TERMINATE=8")
 			llog("THROW=9")
+			llog("objects=A")
 			return
 		end
 		for index,an_entity in pairs(minetest.luaentities) do
@@ -62,6 +63,20 @@ minetest.register_chatcommand("kn_t", {
 				KNOG_instance=an_entity
 			end
 		end
+		if "A"==param then
+			local pos=minetest.get_player_by_name(player_name):get_pos();
+			local objs = minetest.get_objects_inside_radius(pos, 3.0)
+			for n = 1, #objs do
+				local ent = objs[n]:get_luaentity()
+				if ent then
+					local itemstring = ent.itemstring
+					if("default:apple"==itemstring) then
+					end
+					llog(itemstring)
+				end
+			end
+		end
+
 		if nil ==KNOG_instance then return end
 		if "8"==param then
 			llog('Terminated')
@@ -73,7 +88,6 @@ minetest.register_chatcommand("kn_t", {
 			throw_boulder_at_target( KNOG_instance )
 			return
 		end
-
 		local what_to_log, how_many_markers = param:match("(.+)%s+(.+)")
 		if nil== what_to_log then return end
 		if nil == how_many_markers or ""==how_many_markers then how_many_markers=10 end
