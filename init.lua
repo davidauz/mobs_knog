@@ -211,7 +211,7 @@ minetest.register_entity("mobs_knog:knog",
 			timed_actions_timer = timed_actions_timer + dtime
 			if (timed_actions_timer > 1) then
 				self.timed_actions_timer = 0
-				check_for_apples(self)
+				hungry_for_apples(self)
 				local died = check_env_damage(self)
 				if (died) then
 					return
@@ -241,8 +241,8 @@ minetest.register_entity("mobs_knog:knog",
 															--	status_stand
 						["status_walking"] =  function(x) choose_random_action(x) end, 	-->	status_walking
 
-						[ "status_SITTING" ]  =  function(x) check_for_apples(x) end,
-						[ "status_EATING" ]  =  function(x) check_for_apples(x) end,
+						[ "status_SITTING" ]  =  function(x) hungry_for_apples(x) end,
+						[ "status_EATING" ]  =  function(x) hungry_for_apples(x) end,
 					}
 					next_actions[self.status](self)
 				end

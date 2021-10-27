@@ -234,7 +234,7 @@ end
 
 
 
-check_for_apples = function(kn_inst)
+hungry_for_apples = function(kn_inst)
 	if "status_SITTING" == kn_inst.status then
 		kn_inst.status = "status_EATING"
 		kn_inst.object:set_animation (
