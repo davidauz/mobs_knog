@@ -63,10 +63,11 @@ function do_advance (kn_inst) -- [
 				if MARK_FOLIAGE==kn_inst.MARKING_WHAT then add_marker(kn_inst, sample_pos) end
 				nod=node_registered_or_nil(sample_pos)
 				if nod ~= nil then
-					if nod.name == "default:apple" then
---					EATING APPLE
-					elseif ( minetest.get_item_group(nod.name, "tree")>0 
-					or minetest.get_item_group(nod.name, "leaves")>0 ) then
+					if
+					(	minetest.get_item_group(nod.name, "tree")>0 
+					or	minetest.get_item_group(nod.name, "leaves")>0 
+					or	nod.name == "default:apple"
+					) then
 -- special case of animation ouside the finite state automaton just to clear passage in woods
 						kn_inst.object:set_animation (
 						{		x = kn_inst.animation.punch_start
@@ -132,8 +133,6 @@ function do_advance (kn_inst) -- [
 	highest_solid_node = 2 + highest_solid_node
 	if 0 < highest_solid_node then
 		jump_velocity = 1+math.sqrt(-2*highest_solid_node*kn_inst.object:get_acceleration().y )
-llog("Jump velocity=`"..jump_velocity.."`,hsl=`"..highest_solid_node.."`")
-
 		if jump_velocity<1 and jump_velocity>0 then
 			jump_velocity=1
 		end
@@ -235,8 +234,81 @@ end
 
 
 
+check_for_apples = function(kn_inst)
+	if "status_SITTING" == kn_inst.status then
+		kn_inst.status = "status_EATING"
+		kn_inst.object:set_animation (
+		{		x = kn_inst.animation.eating_start
+		,		y = kn_inst.animation.eating_stop
+		} ,		kn_inst.animation.speed_normal
+		,		0
+		)
+		kn_inst.timer=50
+		kn_inst.timer_down=true
+		kn_inst.object:set_velocity(
+		{	x = 0
+		,	y = 0
+		,	z = 0
+		})
+	elseif "status_EATING" == kn_inst.status then
+-- continue eating while there are apples
+		local yaw = kn_inst.object:get_yaw( )
+		local pos = kn_inst.object:get_pos( )
+		local fvx = -math.sin(yaw) -- Front Vector X
+		local fvz = math.cos(yaw) -- Front Vector Y
+		local depth=4
+		local sample_pos={
+			x=pos.x+depth*fvx,
+			y=pos.y,
+			z=pos.z+depth*fvz
+		}
+		for index,object in pairs(minetest.get_objects_inside_radius(sample_pos, 3.0)) do
+			local ent = object:get_luaentity()
+			if ent and "default:apple" == ent.itemstring then
+				object:remove()
+				return
+			end
+		end
+-- apples gone!
+		kn_inst.status = "status_stand"
+	else
+-- look for apples
+		local yaw = kn_inst.object:get_yaw( )
+		local pos = kn_inst.object:get_pos( )
+		local fvx = -math.sin(yaw) -- Front Vector X
+		local fvz = math.cos(yaw) -- Front Vector Y
+		local depth=4
+		local sample_pos={
+			x=pos.x+depth*fvx,
+			y=pos.y,
+			z=pos.z+depth*fvz
+		}
+		for index,object in pairs(minetest.get_objects_inside_radius(sample_pos, 3.0)) do
+			local ent = object:get_luaentity()
+			if ent then
+				local itemstring = ent.itemstring
+				if("default:apple"==itemstring) then
+					kn_inst.status = "status_SITTING"
+					kn_inst.object:set_animation (
+					{		x = kn_inst.animation.sitting_start
+					,		y = kn_inst.animation.sitting_end 
+					} ,		kn_inst.animation.speed_normal
+					,		0
+					)
+					kn_inst.timer=50
+					kn_inst.timer_down=true
+					kn_inst.object:set_velocity(
+					{	x = 0
+					,	y = 0
+					,	z = 0
+					})
+				end
+			end
+		end
+	end
+end
 
-check_target_action = function(kn_inst)
+function check_target_action(kn_inst)
 	if ( "building" == kn_inst.target_type ) then
 		do_towards_building(kn_inst)
 	elseif ( "player" == kn_inst.target_type ) then
@@ -385,7 +457,7 @@ look_for_entity = function(kn_inst)
 	end
 end 
 
-do_towards_building = function(kn_inst) 
+function do_towards_building(kn_inst) 
 	local dist= get_distance_horizontal(kn_inst.object:get_pos(), kn_inst.target_position)
 	if(3>dist) then
 		kn_inst.object:set_animation (
@@ -417,7 +489,7 @@ end
 
 
 
-do_towards_entity = function(kn_inst) 
+function do_towards_entity(kn_inst) 
 -- update target position (entity may move)
 	if nil == kn_inst.target_entity then return end
 	if nil == kn_inst.target_entity.object then return end
@@ -501,7 +573,7 @@ end
 
 
 
-do_towards_player = function(kn_inst) 
+function do_towards_player(kn_inst) 
 -- update target position (target may move)
 	kn_inst.target_position = kn_inst.target_entity:get_pos()
 	local dist= get_distance_horizontal(kn_inst.object:get_pos(), kn_inst.target_position)
@@ -590,13 +662,14 @@ function check_env_damage(kn_inst)
 	if nil ==standing_in then return end
 	local nodef = minetest.registered_nodes[standing_in]
 	if nodef.groups.water then
-		kn_inst.object:set_hp( kn_inst.object:get_hp() - kn_inst.BASE_ENV_DAMAGE )
+		kn_inst.object:set_hp( kn_inst.object:get_hp() - 10*kn_inst.BASE_ENV_DAMAGE )
+llog("IS WATER:"..kn_inst.object:get_hp())
 	end
 	if	nodef.groups.lava
 	or	string.find(nodef.name, "fire") 
 	or	string.find(nodef.name, "lava") 
 	then
-		kn_inst.object:set_hp( kn_inst.object:get_hp() - 3*kn_inst.BASE_ENV_DAMAGE )
+		kn_inst.object:set_hp( kn_inst.object:get_hp() - 30*kn_inst.BASE_ENV_DAMAGE )
 	end
 
     if (kn_inst.object:get_hp() <= 0) then

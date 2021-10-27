@@ -65,12 +65,12 @@ minetest.register_chatcommand("kn_t", {
 		end
 		if "A"==param then
 			local pos=minetest.get_player_by_name(player_name):get_pos();
-			local objs = minetest.get_objects_inside_radius(pos, 3.0)
-			for n = 1, #objs do
-				local ent = objs[n]:get_luaentity()
+			for index,object in pairs(minetest.get_objects_inside_radius(pos, 3.0)) do
+				local ent = object:get_luaentity()
 				if ent then
 					local itemstring = ent.itemstring
 					if("default:apple"==itemstring) then
+						object:remove()
 					end
 					llog(itemstring)
 				end
@@ -147,7 +147,7 @@ minetest.register_entity("mobs_knog:knog",
 	,	target_position = nil
 	,	visual = "mesh"
 	,	timer=20
-	,	env_damage_timer = 0
+	,	timed_actions_timer = 0
         ,	physical = true
 	,	visual_size = {x=8, y=8}
 	,	k_tool_capabilities = {
@@ -180,6 +180,10 @@ minetest.register_entity("mobs_knog:knog",
 	,		gaze_end = 154
 	,		punch_start = 71
 	,		punch_end = 118
+	,		sitting_start=154
+	,		sitting_end=163
+	,		eating_start=163
+	,		eating_stop=197
 	,		punch_loop = true
 	,		current=""
 	}
@@ -217,16 +221,17 @@ minetest.register_entity("mobs_knog:knog",
 	
 	,	on_step = function(self, dtime)
 			-- Check for damage every second
-			local env_damage_timer = self.env_damage_timer
-			env_damage_timer = env_damage_timer + dtime
-			if (env_damage_timer > 1) then
-				self.env_damage_timer = 0
+			local timed_actions_timer = self.timed_actions_timer
+			timed_actions_timer = timed_actions_timer + dtime
+			if (timed_actions_timer > 1) then
+				self.timed_actions_timer = 0
+				check_for_apples(self)
 				local died = check_env_damage(self)
 				if (died) then
 					return
 				end
 			else
-				self.env_damage_timer = env_damage_timer
+				self.timed_actions_timer = timed_actions_timer
 			end
 -- main routine for behaviour
 			if ( true == self.timer_down ) then
@@ -249,8 +254,9 @@ minetest.register_entity("mobs_knog:knog",
 															--	status_targeted
 															--	status_stand
 						["status_walking"] =  function(x) choose_random_action(x) end, 	-->	status_walking
-															--	status_targeted
-															--	status_stand
+
+						[ "status_SITTING" ]  =  function(x) check_for_apples(x) end,
+						[ "status_EATING" ]  =  function(x) check_for_apples(x) end,
 					}
 					next_actions[self.status](self)
 				end
