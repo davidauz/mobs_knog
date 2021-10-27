@@ -53,27 +53,13 @@ minetest.register_chatcommand("kn_t", {
 			llog("MARK_RAYCAST_BUILDING=5")
 			llog("MARK_HIGHLIGHT_BUILDING=6")
 			llog("MARK boulder=7")
-			llog("TERMINATE=8")
-			llog("THROW=9")
-			llog("objects=A")
+			llog("KILL KNOG=8")
+			llog("THROW BOULDER=9")
 			return
 		end
 		for index,an_entity in pairs(minetest.luaentities) do
 			if an_entity.name ~= nil and an_entity.name == "mobs_knog:knog" then
 				KNOG_instance=an_entity
-			end
-		end
-		if "A"==param then
-			local pos=minetest.get_player_by_name(player_name):get_pos();
-			for index,object in pairs(minetest.get_objects_inside_radius(pos, 3.0)) do
-				local ent = object:get_luaentity()
-				if ent then
-					local itemstring = ent.itemstring
-					if("default:apple"==itemstring) then
-						object:remove()
-					end
-					llog(itemstring)
-				end
 			end
 		end
 
